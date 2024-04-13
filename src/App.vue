@@ -116,7 +116,7 @@ import {
   IoTDataPlaneClient,
   PublishCommand,
 } from "@aws-sdk/client-iot-data-plane";
-import { IoTClient, AttachPolicyCommand } from "@aws-sdk/client-iot";
+import { IoTClient /*AttachPolicyCommand*/ } from "@aws-sdk/client-iot";
 
 import { fromCognitoIdentityPool } from "@aws-sdk/credential-providers";
 
@@ -162,22 +162,22 @@ async function getKeys() {
   return ci.config.credentials();
 }
 
-async function policyIot(credentials) {
-  const client = new IoTClient({
-    credentials,
-    region,
-  });
-  const input = {
-    policyName: "alarma_casa",
-    target: credentials.identityId,
-  };
-  const command = new AttachPolicyCommand(input);
-  const res = await client.send(command);
-}
+// async function policyIot(credentials) {
+//   const client = new IoTClient({
+//     credentials,
+//     region,
+//   });
+//   const input = {
+//     policyName: "alarma_casa",
+//     target: credentials.identityId,
+//   };
+//   const command = new AttachPolicyCommand(input);
+//   const res = await client.send(command);
+// }
 
 async function send_command_iot(topic, data) {
   let credentials = await getKeys();
-  await policyIot(credentials);
+  //await policyIot(credentials);
 
   const clientIot = new IoTDataPlaneClient({
     credentials,
