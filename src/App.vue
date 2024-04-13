@@ -1,0 +1,222 @@
+<template>
+  <v-app>
+    <v-main>
+      <div v-if="auth == null">
+        <v-card
+          class="mx-auto pa-12 pb-8"
+          elevation="8"
+          max-width="448"
+          rounded="lg"
+        >
+          <div class="text-subtitle-1 text-medium-emphasis">Cuenta</div>
+
+          <v-text-field
+            density="compact"
+            placeholder="Usuario"
+            prepend-inner-icon="mdi-email-outline"
+            variant="outlined"
+            v-model="user"
+          ></v-text-field>
+
+          <div
+            class="text-subtitle-1 text-medium-emphasis d-flex align-center justify-space-between"
+          >
+            Password
+          </div>
+
+          <v-text-field
+            :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
+            :type="visible ? 'text' : 'password'"
+            density="compact"
+            placeholder="Password"
+            prepend-inner-icon="mdi-lock-outline"
+            variant="outlined"
+            v-model="pass"
+            @click:append-inner="visible = !visible"
+          ></v-text-field>
+
+          <v-btn
+            @click="login()"
+            class="mb-8"
+            color="blue"
+            size="large"
+            variant="tonal"
+            block
+          >
+            Log In
+          </v-btn>
+        </v-card>
+      </div>
+      <div v-else>
+        <v-card
+          class="mx-auto pa-12 pb-8"
+          elevation="8"
+          max-width="448"
+          rounded="lg"
+        >
+          <v-btn
+            @click="enable_alarm()"
+            class="mb-8"
+            color="blue"
+            size="large"
+            variant="tonal"
+            block
+          >
+            Activar alarma
+          </v-btn>
+
+          <v-btn
+            @click="disable_alarm()"
+            class="mb-8"
+            color="blue"
+            size="large"
+            variant="tonal"
+            block
+          >
+            Desactivar alarma
+          </v-btn>
+          <v-btn
+            @click="play_sound()"
+            class="mb-8"
+            color="blue"
+            size="large"
+            variant="tonal"
+            block
+          >
+            Activar sonido
+          </v-btn>
+
+          <v-btn
+            @click="stop_sound()"
+            class="mb-8"
+            color="blue"
+            size="large"
+            variant="tonal"
+            block
+          >
+            Parar sonido
+          </v-btn>
+        </v-card>
+      </div>
+    </v-main>
+  </v-app>
+</template>
+
+<script setup>
+import { onMounted, ref } from "vue";
+
+import {
+  CognitoIdentityProviderClient,
+  InitiateAuthCommand,
+} from "@aws-sdk/client-cognito-identity-provider";
+
+import { CognitoIdentityClient } from "@aws-sdk/client-cognito-identity";
+
+import {
+  IoTDataPlaneClient,
+  PublishCommand,
+} from "@aws-sdk/client-iot-data-plane";
+import { IoTClient, AttachPolicyCommand } from "@aws-sdk/client-iot";
+
+import { fromCognitoIdentityPool } from "@aws-sdk/credential-providers";
+
+let auth = ref(null);
+let user = ref(null);
+let pass = ref(null);
+
+const region = "eu-west-1";
+const cognitoUserPoolId = "eu-west-1_MyN0QjAxZ";
+const cognitoUserPoolClientId = "1q79cvin3kj58corv42lkqrn5f";
+const cognitoIdentityPoolId = "eu-west-1:b680ccc9-ed1f-43ac-af7b-524d83785fe0";
+
+async function login() {
+  const config = {
+    region,
+  };
+  const client = new CognitoIdentityProviderClient(config);
+  const input = {
+    // InitiateAuthRequest
+    AuthFlow: "USER_PASSWORD_AUTH",
+    AuthParameters: {
+      USERNAME: user.value,
+      PASSWORD: pass.value,
+    },
+    ClientId: cognitoUserPoolClientId,
+  };
+  const command = new InitiateAuthCommand(input);
+  const response = await client.send(command);
+  auth.value = response.AuthenticationResult.IdToken;
+  sessionStorage.setItem("auth", auth.value);
+}
+
+async function getKeys() {
+  let ci = new CognitoIdentityClient({
+    credentials: fromCognitoIdentityPool({
+      clientConfig: { region },
+      identityPoolId: cognitoIdentityPoolId,
+      logins: {
+        "cognito-idp.eu-west-1.amazonaws.com/eu-west-1_MyN0QjAxZ": auth.value,
+      },
+    }),
+  });
+  return ci.config.credentials();
+}
+
+async function policyIot(credentials) {
+  const client = new IoTClient({
+    credentials,
+    region,
+  });
+  const input = {
+    policyName: "alarma_casa",
+    target: credentials.identityId,
+  };
+  const command = new AttachPolicyCommand(input);
+  const res = await client.send(command);
+}
+
+async function send_command_iot(topic, data) {
+  let credentials = await getKeys();
+  await policyIot(credentials);
+
+  const clientIot = new IoTDataPlaneClient({
+    credentials,
+    region,
+  });
+
+  const inputIot = {
+    topic,
+    payload: JSON.stringify(data),
+    contentType: "application/json",
+    qos: 0,
+  };
+  const commandIot = new PublishCommand(inputIot);
+  try {
+    const responseIot = await clientIot.send(commandIot);
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+async function enable_alarm() {
+  return send_command_iot("alarma_casa/alarm_enable", { state: "on" });
+}
+async function disable_alarm() {
+  return send_command_iot("alarma_casa/alarm_enable", { state: "off" });
+}
+async function play_sound() {
+  return send_command_iot("alarma_casa/play_sound", { state: "on" });
+}
+async function stop_sound() {
+  return send_command_iot("alarma_casa/play_sound", { state: "off" });
+}
+
+onMounted(async () => {
+  auth.value = sessionStorage.getItem("auth");
+
+  //const data = new URL(window.location.href).hash.split("=");
+  // const data = new URL(window.location.href.replace("#", "?")).searchParams.get(
+  //   "id_token",
+  // );
+});
+</script>
