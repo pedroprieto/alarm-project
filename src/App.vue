@@ -54,27 +54,39 @@
           max-width="448"
           rounded="lg"
         >
-          <v-btn
-            @click="enable_alarm()"
-            class="mb-8"
-            color="blue"
-            size="large"
-            variant="tonal"
-            block
-          >
-            Activar alarma
-          </v-btn>
+          <v-switch
+            @change="updateAlarmState()"
+            color="primary"
+            v-model="alarm_desired"
+            label="Cambiar alarma"
+          ></v-switch>
+          <v-switch
+            color="secondary"
+            v-model="alarm_reported"
+            label="Estado actual alarma"
+            disabled="true"
+          ></v-switch>
+          <!-- <v-btn -->
+          <!--   @click="enable_alarm()" -->
+          <!--   class="mb-8" -->
+          <!--   color="blue" -->
+          <!--   size="large" -->
+          <!--   variant="tonal" -->
+          <!--   block -->
+          <!-- > -->
+          <!--   Activar alarma -->
+          <!-- </v-btn> -->
 
-          <v-btn
-            @click="disable_alarm()"
-            class="mb-8"
-            color="blue"
-            size="large"
-            variant="tonal"
-            block
-          >
-            Desactivar alarma
-          </v-btn>
+          <!-- <v-btn -->
+          <!--   @click="disable_alarm()" -->
+          <!--   class="mb-8" -->
+          <!--   color="blue" -->
+          <!--   size="large" -->
+          <!--   variant="tonal" -->
+          <!--   block -->
+          <!-- > -->
+          <!--   Desactivar alarma -->
+          <!-- </v-btn> -->
           <v-btn
             @click="play_sound()"
             class="mb-8"
@@ -115,6 +127,8 @@ import { CognitoIdentityClient } from "@aws-sdk/client-cognito-identity";
 import {
   IoTDataPlaneClient,
   PublishCommand,
+  GetThingShadowCommand,
+  UpdateThingShadowCommand,
 } from "@aws-sdk/client-iot-data-plane";
 import { IoTClient /*AttachPolicyCommand*/ } from "@aws-sdk/client-iot";
 
@@ -123,6 +137,8 @@ import { fromCognitoIdentityPool } from "@aws-sdk/credential-providers";
 let auth = ref(null);
 let user = ref(null);
 let pass = ref(null);
+let alarm_desired = ref(null);
+let alarm_reported = ref(null);
 
 const region = "eu-west-1";
 const cognitoUserPoolId = "eu-west-1_MyN0QjAxZ";
@@ -198,17 +214,38 @@ async function send_command_iot(topic, data) {
   }
 }
 
-async function enable_alarm() {
-  return send_command_iot("alarma_casa/alarm_enable", { state: "on" });
-}
-async function disable_alarm() {
-  return send_command_iot("alarma_casa/alarm_enable", { state: "off" });
-}
+// async function enable_alarm() {
+//   return send_command_iot("alarma_casa/alarm_enable", { state: "on" });
+// }
+// async function disable_alarm() {
+//   return send_command_iot("alarma_casa/alarm_enable", { state: "off" });
+// }
 async function play_sound() {
   return send_command_iot("alarma_casa/play_sound", { state: "on" });
 }
 async function stop_sound() {
   return send_command_iot("alarma_casa/play_sound", { state: "off" });
+}
+
+async function getAlarmState() {
+  let credentials = await getKeys();
+
+  const client = new IoTDataPlaneClient({
+    credentials,
+    region,
+  });
+
+  const input = {
+    thingName: "alarma_casa",
+    shadowName: "alarm_state_shadow",
+  };
+
+  const command = new GetThingShadowCommand(input);
+  const response = await client.send(command);
+  let utf8decoder = new TextDecoder();
+  let state = JSON.parse(utf8decoder.decode(response.payload));
+  alarm_desired.value = state.state.desired.alarm_enable;
+  alarm_reported.value = state.state.reported.alarm_enable;
 }
 
 onMounted(async () => {
@@ -218,5 +255,33 @@ onMounted(async () => {
   // const data = new URL(window.location.href.replace("#", "?")).searchParams.get(
   //   "id_token",
   // );
+  await getAlarmState();
 });
+
+async function updateAlarmState() {
+  let credentials = await getKeys();
+
+  const client = new IoTDataPlaneClient({
+    credentials,
+    region,
+  });
+
+  let utf8encoder = new TextEncoder();
+  let data = {
+    state: {
+      desired: {
+        alarm_enable: alarm_desired.value,
+      },
+    },
+  };
+
+  const input = {
+    thingName: "alarma_casa",
+    shadowName: "alarm_state_shadow",
+    payload: utf8encoder.encode(JSON.stringify(data)),
+  };
+
+  const command = new UpdateThingShadowCommand(input);
+  const response = await client.send(command);
+}
 </script>
