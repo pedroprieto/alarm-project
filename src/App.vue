@@ -177,7 +177,7 @@ async function login() {
     const command = new InitiateAuthCommand(input);
     const response = await client.send(command);
     auth.value = response.AuthenticationResult.IdToken;
-    sessionStorage.setItem("auth", auth.value);
+    sessionStorage.setItem("auth", JSON.stringify(auth.value));
     await getAlarmState();
     ready.value = true;
     errorMessage.value = "";
@@ -213,25 +213,26 @@ async function getKeys() {
 // }
 
 async function send_command_iot(topic, data) {
-  let credentials = await getKeys();
-  //await policyIot(credentials);
-
-  const clientIot = new IoTDataPlaneClient({
-    credentials,
-    region,
-  });
-
-  const inputIot = {
-    topic,
-    payload: JSON.stringify(data),
-    contentType: "application/json",
-    qos: 0,
-  };
-  const commandIot = new PublishCommand(inputIot);
   try {
+    let credentials = await getKeys();
+    //await policyIot(credentials);
+
+    const clientIot = new IoTDataPlaneClient({
+      credentials,
+      region,
+    });
+
+    const inputIot = {
+      topic,
+      payload: JSON.stringify(data),
+      contentType: "application/json",
+      qos: 0,
+    };
+    const commandIot = new PublishCommand(inputIot);
     const responseIot = await clientIot.send(commandIot);
   } catch (e) {
-    console.log(e);
+    auth.value = null;
+    sessionStorage.setItem("auth", JSON.stringify(null));
   }
 }
 
@@ -249,63 +250,73 @@ async function stop_sound() {
 }
 
 async function getAlarmState() {
-  let credentials = await getKeys();
+  try {
+    let credentials = await getKeys();
 
-  const client = new IoTDataPlaneClient({
-    credentials,
-    region,
-  });
+    const client = new IoTDataPlaneClient({
+      credentials,
+      region,
+    });
 
-  const input = {
-    thingName: "alarma_casa",
-    shadowName: "alarm_state_shadow",
-  };
+    const input = {
+      thingName: "alarma_casa",
+      shadowName: "alarm_state_shadow",
+    };
 
-  const command = new GetThingShadowCommand(input);
-  const response = await client.send(command);
-  let utf8decoder = new TextDecoder();
-  let state = JSON.parse(utf8decoder.decode(response.payload));
-  alarm_desired.value = state.state.desired.alarm_enable;
-  alarm_reported.value = state.state.reported.alarm_enable;
+    const command = new GetThingShadowCommand(input);
+    const response = await client.send(command);
+    let utf8decoder = new TextDecoder();
+    let state = JSON.parse(utf8decoder.decode(response.payload));
+    alarm_desired.value = state.state.desired.alarm_enable;
+    alarm_reported.value = state.state.reported.alarm_enable;
+  } catch (e) {
+    auth.value = null;
+    sessionStorage.setItem("auth", JSON.stringify(null));
+  }
 }
 
 onMounted(async () => {
-  auth.value = sessionStorage.getItem("auth");
+  auth.value = JSON.parse(sessionStorage.getItem("auth"));
 
   //const data = new URL(window.location.href).hash.split("=");
   // const data = new URL(window.location.href.replace("#", "?")).searchParams.get(
   //   "id_token",
   // );
-  if (auth.value) {
+  if (auth.value != null) {
     await getAlarmState();
     ready.value = true;
   }
 });
 
 async function updateAlarmState() {
-  let credentials = await getKeys();
+  try {
+    let credentials = await getKeys();
 
-  const client = new IoTDataPlaneClient({
-    credentials,
-    region,
-  });
+    const client = new IoTDataPlaneClient({
+      credentials,
+      region,
+    });
 
-  let utf8encoder = new TextEncoder();
-  let data = {
-    state: {
-      desired: {
-        alarm_enable: alarm_desired.value,
+    let utf8encoder = new TextEncoder();
+    let data = {
+      state: {
+        desired: {
+          alarm_enable: alarm_desired.value,
+        },
       },
-    },
-  };
+    };
 
-  const input = {
-    thingName: "alarma_casa",
-    shadowName: "alarm_state_shadow",
-    payload: utf8encoder.encode(JSON.stringify(data)),
-  };
+    const input = {
+      thingName: "alarma_casa",
+      shadowName: "alarm_state_shadow",
+      payload: utf8encoder.encode(JSON.stringify(data)),
+    };
 
-  const command = new UpdateThingShadowCommand(input);
-  const response = await client.send(command);
+    const command = new UpdateThingShadowCommand(input);
+    const response = await client.send(command);
+  } catch (e) {
+    auth.value = null;
+    sessionStorage.setItem("auth", JSON.stringify(null));
+  }
 }
 </script>
