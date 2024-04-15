@@ -50,7 +50,7 @@
           </v-btn>
         </v-card>
       </div>
-      <div v-else>
+      <div v-else-if="ready">
         <v-card
           class="mx-auto pa-12 pb-8"
           elevation="8"
@@ -142,6 +142,7 @@ let user = ref(null);
 let pass = ref(null);
 let alarm_desired = ref(null);
 let alarm_reported = ref(null);
+let ready = ref(false);
 
 const region = "eu-west-1";
 const cognitoUserPoolId = "eu-west-1_MyN0QjAxZ";
@@ -167,6 +168,7 @@ async function login() {
   auth.value = response.AuthenticationResult.IdToken;
   sessionStorage.setItem("auth", auth.value);
   await getAlarmState();
+  ready.value = true;
 }
 
 async function getKeys() {
@@ -259,7 +261,10 @@ onMounted(async () => {
   // const data = new URL(window.location.href.replace("#", "?")).searchParams.get(
   //   "id_token",
   // );
-  if (auth.value) await getAlarmState();
+  if (auth.value) {
+    await getAlarmState();
+    ready.value = true;
+  }
 });
 
 async function updateAlarmState() {
