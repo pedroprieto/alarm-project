@@ -14,7 +14,7 @@
             density="compact"
             placeholder="Usuario"
             autocomplete="username"
-            prepend-inner-icon="mdi-email-outline"
+            prepend-inner-icon="mdi-account-outline"
             variant="outlined"
             v-model="user"
             name="username"
