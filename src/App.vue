@@ -13,6 +13,7 @@
           <v-text-field
             density="compact"
             placeholder="Usuario"
+            autocomplete="username"
             prepend-inner-icon="mdi-email-outline"
             variant="outlined"
             v-model="user"
@@ -30,6 +31,7 @@
             density="compact"
             placeholder="Password"
             prepend-inner-icon="mdi-lock-outline"
+            autocomplete="current-password"
             variant="outlined"
             v-model="pass"
             @click:append-inner="visible = !visible"
