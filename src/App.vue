@@ -259,6 +259,7 @@ onMounted(async () => {
   // const data = new URL(window.location.href.replace("#", "?")).searchParams.get(
   //   "id_token",
   // );
+  if (auth.value) await getAlarmState();
 });
 
 async function updateAlarmState() {
