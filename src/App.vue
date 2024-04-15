@@ -17,6 +17,7 @@
             prepend-inner-icon="mdi-email-outline"
             variant="outlined"
             v-model="user"
+            name="username"
           ></v-text-field>
 
           <div
