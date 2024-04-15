@@ -165,6 +165,7 @@ async function login() {
   const response = await client.send(command);
   auth.value = response.AuthenticationResult.IdToken;
   sessionStorage.setItem("auth", auth.value);
+  await getAlarmState();
 }
 
 async function getKeys() {
@@ -257,7 +258,6 @@ onMounted(async () => {
   // const data = new URL(window.location.href.replace("#", "?")).searchParams.get(
   //   "id_token",
   // );
-  await getAlarmState();
 });
 
 async function updateAlarmState() {
