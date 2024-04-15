@@ -8,48 +8,57 @@
           max-width="448"
           rounded="lg"
         >
-          <div class="text-subtitle-1 text-medium-emphasis">Cuenta</div>
+          <v-form @submit.prevent="login()">
+            <div class="text-subtitle-1 text-medium-emphasis">Cuenta</div>
 
-          <v-text-field
-            density="compact"
-            placeholder="Usuario"
-            autocomplete="username"
-            prepend-inner-icon="mdi-account-outline"
-            variant="outlined"
-            v-model="user"
-            name="username"
-          ></v-text-field>
+            <v-text-field
+              density="compact"
+              placeholder="Usuario"
+              autocomplete="username"
+              prepend-inner-icon="mdi-account-outline"
+              variant="outlined"
+              v-model="user"
+              name="username"
+            ></v-text-field>
 
-          <div
-            class="text-subtitle-1 text-medium-emphasis d-flex align-center justify-space-between"
-          >
-            Password
-          </div>
+            <div
+              class="text-subtitle-1 text-medium-emphasis d-flex align-center justify-space-between"
+            >
+              Password
+            </div>
 
-          <v-text-field
-            :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
-            :type="visible ? 'text' : 'password'"
-            density="compact"
-            placeholder="Password"
-            prepend-inner-icon="mdi-lock-outline"
-            autocomplete="current-password"
-            variant="outlined"
-            v-model="pass"
-            @click:append-inner="visible = !visible"
-          ></v-text-field>
+            <v-text-field
+              :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
+              :type="visible ? 'text' : 'password'"
+              density="compact"
+              placeholder="Password"
+              prepend-inner-icon="mdi-lock-outline"
+              autocomplete="current-password"
+              variant="outlined"
+              v-model="pass"
+              @click:append-inner="visible = !visible"
+            ></v-text-field>
 
-          <v-btn
-            @click="login()"
-            class="mb-8"
-            color="blue"
-            size="large"
-            variant="tonal"
-            block
-          >
-            Log In
-          </v-btn>
+            <v-card v-if="errorMessage" class="mb-12" color="red">
+              <v-card-text class="text-medium-emphasis text-caption">
+                {{ errorMessage }}
+              </v-card-text>
+            </v-card>
+
+            <v-btn
+              type="submit"
+              class="mb-8"
+              color="blue"
+              size="large"
+              variant="tonal"
+              block
+            >
+              Log In
+            </v-btn>
+          </v-form>
         </v-card>
       </div>
+
       <div v-else-if="ready">
         <v-card
           class="mx-auto pa-12 pb-8"
@@ -67,7 +76,7 @@
             color="secondary"
             v-model="alarm_reported"
             label="Estado actual alarma"
-            disabled="true"
+            disabled
           ></v-switch>
           <!-- <v-btn -->
           <!--   @click="enable_alarm()" -->
@@ -143,6 +152,7 @@ let pass = ref(null);
 let alarm_desired = ref(null);
 let alarm_reported = ref(null);
 let ready = ref(false);
+let errorMessage = ref("");
 
 const region = "eu-west-1";
 const cognitoUserPoolId = "eu-west-1_MyN0QjAxZ";
@@ -150,25 +160,30 @@ const cognitoUserPoolClientId = "1q79cvin3kj58corv42lkqrn5f";
 const cognitoIdentityPoolId = "eu-west-1:b680ccc9-ed1f-43ac-af7b-524d83785fe0";
 
 async function login() {
-  const config = {
-    region,
-  };
-  const client = new CognitoIdentityProviderClient(config);
-  const input = {
-    // InitiateAuthRequest
-    AuthFlow: "USER_PASSWORD_AUTH",
-    AuthParameters: {
-      USERNAME: user.value,
-      PASSWORD: pass.value,
-    },
-    ClientId: cognitoUserPoolClientId,
-  };
-  const command = new InitiateAuthCommand(input);
-  const response = await client.send(command);
-  auth.value = response.AuthenticationResult.IdToken;
-  sessionStorage.setItem("auth", auth.value);
-  await getAlarmState();
-  ready.value = true;
+  try {
+    const config = {
+      region,
+    };
+    const client = new CognitoIdentityProviderClient(config);
+    const input = {
+      // InitiateAuthRequest
+      AuthFlow: "USER_PASSWORD_AUTH",
+      AuthParameters: {
+        USERNAME: user.value,
+        PASSWORD: pass.value,
+      },
+      ClientId: cognitoUserPoolClientId,
+    };
+    const command = new InitiateAuthCommand(input);
+    const response = await client.send(command);
+    auth.value = response.AuthenticationResult.IdToken;
+    sessionStorage.setItem("auth", auth.value);
+    await getAlarmState();
+    ready.value = true;
+    errorMessage.value = "";
+  } catch (e) {
+    errorMessage.value = "Error en la autenticación";
+  }
 }
 
 async function getKeys() {
